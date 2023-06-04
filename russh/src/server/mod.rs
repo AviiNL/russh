@@ -166,8 +166,10 @@ pub struct Config {
     pub preferred: Preferred,
     /// Maximal number of allowed authentication attempts.
     pub max_auth_attempts: usize,
+    /// Time the client has to respond with ssh-id
+    pub initialization_timeout: Option<std::time::Duration>,
     /// Time after which the connection is garbage-collected.
-    pub connection_timeout: Option<std::time::Duration>,
+    pub inactivity_timeout: Option<std::time::Duration>,
 }
 
 impl Default for Config {
@@ -189,7 +191,8 @@ impl Default for Config {
             limits: Limits::default(),
             preferred: Default::default(),
             max_auth_attempts: 10,
-            connection_timeout: Some(std::time::Duration::from_secs(600)),
+            initialization_timeout: Some(std::time::Duration::from_secs(2)),
+            inactivity_timeout: Some(std::time::Duration::from_secs(600)),
         }
     }
 }
@@ -821,7 +824,7 @@ async fn read_ssh_id<R: AsyncRead + Unpin>(
     config: Arc<Config>,
     read: &mut SshRead<R>,
 ) -> Result<CommonSession<Arc<Config>>, Error> {
-    let sshid = if let Some(t) = config.connection_timeout {
+    let sshid = if let Some(t) = config.initialization_timeout {
         tokio::time::timeout(t, read.read_ssh_id()).await??
     } else {
         read.read_ssh_id().await?
